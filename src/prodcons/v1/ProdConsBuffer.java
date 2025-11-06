@@ -1,10 +1,15 @@
+package prodcons.v1;
+
+import interfaces.IProdConsBuffer;
+import interfaces.Message;
+
 public class ProdConsBuffer implements IProdConsBuffer {
 	public ProdConsBuffer() {
 	}
 
 	@Override
 	public void put(Message m) throws InterruptedException {
-
+		//
 	}
 
 	@Override
