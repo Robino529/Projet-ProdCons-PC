@@ -6,10 +6,10 @@ import interfaces.Message;
 /**
  * Implémentation de la Solution Directe à partir de :
  *
- * | Opération           | Pre-action | Garde                             | Post-action                                             |
- * |---------------------|------------|-----------------------------------|---------------------------------------------------------|
- * | void put(Message m) |            | nbMsgInBuffer < buffer.length - 1 | putBuffer(m); nbMsgInBuffer++; nbMsgDuringBufferLife++; |
- * | Message get()       |            |                                   | return buffer[indice]; incrIndice(); nbMsgInBuffer--;   |
+ * | Opération           | Pre-action   | Garde                             | Post-action                                             |
+ * |---------------------|--------------|-----------------------------------|---------------------------------------------------------|
+ * | void put(Message m) |              | nbMsgInBuffer < buffer.length     | putBuffer(m); nbMsgInBuffer++; nbMsgDuringBufferLife++; |
+ * | Message get()       |              | nbMsgInBuffer > 0                 | return buffer[indice]; incrIndice(); nbMsgInBuffer--;   |
  *
  */
 
@@ -31,7 +31,7 @@ public class ProdConsBuffer implements IProdConsBuffer {
 
 	@Override
 	public synchronized void put(Message m) throws InterruptedException {
-		while (nmsg() >= buffer.length - 1) {
+		while (nmsg() >= buffer.length) {
 			try {
 				wait();
 			} catch (InterruptedException e) {
@@ -42,14 +42,24 @@ public class ProdConsBuffer implements IProdConsBuffer {
 		putBuffer(m);
 		nbMsgInBuffer++;
 		nbMsgDuringBufferLife++;
+		notifyAll();
 		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tProduce : " + m);
 	}
 
 	@Override
 	public synchronized Message get() throws InterruptedException {
+		while (nmsg() == 0) {
+			try {
+				wait();
+			} catch (InterruptedException e) {
+				System.out.println(e.getMessage());
+			}
+		}
+
 		Message m = buffer[indice];
 		incrIndice();
 		nbMsgInBuffer--;
+		notify();
 		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tConsume : " + m);
 		return m;
 	}
