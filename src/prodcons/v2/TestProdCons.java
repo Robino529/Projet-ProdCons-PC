@@ -1,6 +1,6 @@
-package tests;
+package prodcons.v2;
 
-import prodcons.v1.ProdConsBuffer;
+import tests.Producer;
 
 import java.io.IOException;
 import java.util.Properties;
@@ -46,6 +46,27 @@ public class TestProdCons {
 				} else {
 					consumers[alreadyStartedCons].start();
 					alreadyStartedCons++;
+				}
+			}
+
+			for (Producer producer : producers) {
+				try {
+					producer.join();
+				} catch (InterruptedException e) {
+					throw new RuntimeException(e);
+				}
+			}
+
+			// permet de s'assurer que personne d'autre ne va produire des messages (en réalité inutile dans le cas
+			// de cet objectif car un seul programme discute avec le buffer).
+			// Cela permet également aux consumers de s'arrêter puisqu'ils n'avaient pas de condition d'arrêt au préalable.
+			buffer.shutdown();
+
+			for (Consumer consumer : consumers) {
+				try {
+					consumer.join();
+				} catch (InterruptedException e) {
+					throw new RuntimeException(e);
 				}
 			}
 
