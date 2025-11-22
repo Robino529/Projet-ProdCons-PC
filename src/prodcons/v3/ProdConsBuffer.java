@@ -23,8 +23,8 @@ public class ProdConsBuffer implements IProdConsBuffer {
 
     @Override
     public void put(Message m) throws InterruptedException {
-        notFull.acquire(); // Décrémente places libres (bloque si 0)
-        mutex.acquire();   // Entrée section critique
+        notFull.acquire();
+        mutex.acquire();
         try {
             buffer[in] = m;
             in = (in + 1) % size;
@@ -32,9 +32,9 @@ public class ProdConsBuffer implements IProdConsBuffer {
             total++;
             System.out.println("Put " + m);
         } finally {
-            mutex.release();   // Sortie section critique
+            mutex.release();
         }
-        notEmpty.release(); // Incrémente messages dispos
+        notEmpty.release();
     }
 
     @Override
@@ -55,7 +55,7 @@ public class ProdConsBuffer implements IProdConsBuffer {
     }
 
     @Override
-    public int nmsg() { return count; } // Note: lecture non protégée ici pour simplifier, ou ajouter mutex
+    public int nmsg() { return count; }
     @Override
     public int totmsg() { return total; }
 }
