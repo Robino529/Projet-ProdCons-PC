@@ -27,10 +27,12 @@ public class ProdConsBuffer implements IProdConsBuffer {
 	private boolean shutdown = false; // lié à l'objectif 2
 
 	// quitte à utiliser un Lock autant utiliser la version équitable qui garantit l'absence de famine
-	private Lock prodLock = new ReentrantLock(true);
-	private Condition prodCondition = prodLock.newCondition();
-	private Lock consLock = new ReentrantLock(true);
-	private Condition consCondition = consLock.newCondition();
+	private final Lock prodLock = new ReentrantLock(true);
+	private final Condition prodCondition = prodLock.newCondition();
+	private int prodWaitingThreads = 0;
+	private final Lock consLock = new ReentrantLock(true);
+	private final Condition consCondition = consLock.newCondition();
+	private int consWaitingThreads = 0;
 
 	public ProdConsBuffer() {
 		this.buffer = new Message[SIZE_BUFFER];
@@ -58,7 +60,12 @@ public class ProdConsBuffer implements IProdConsBuffer {
 		putBuffer(m);
 		nbMsgInBuffer++;
 		nbMsgDuringBufferLife++;
-		consCondition.signal(); // on prévient la condition des consommateurs, qu'un message a été ajouté
+
+		if (consLock.tryLock()) {
+			consCondition.signal(); // on prévient la condition des consommateurs, qu'un message a été ajouté
+			consLock.unlock();
+		}
+
 		prodLock.unlock(); // on libère le verrou ici, l'E/S juste après va provoquer la commutation mais on aura terminé
 		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tProduce : " + m);
 	}
@@ -79,7 +86,12 @@ public class ProdConsBuffer implements IProdConsBuffer {
 		Message m = buffer[indice];
 		incrIndice();
 		nbMsgInBuffer--;
-		prodCondition.signal();
+
+		if (prodLock.tryLock()) {
+			prodCondition.signal();
+			prodLock.unlock();
+		}
+
 		consLock.unlock();
 		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tConsume : " + m);
 		return m;
