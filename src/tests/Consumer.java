@@ -1,13 +1,13 @@
 package tests;
 
+import interfaces.IProdConsBuffer;
 import interfaces.Message;
-import prodcons.v1.ProdConsBuffer;
 
 public class Consumer extends Thread {
-	private ProdConsBuffer buffer;
-	private final int consTime;
+	protected IProdConsBuffer buffer;
+	protected final int consTime;
 
-	public Consumer(int id, ProdConsBuffer buffer, int consTime) {
+	public Consumer(int id, IProdConsBuffer buffer, int consTime) {
 		super("Consumer-" + id);
 		this.buffer = buffer;
 		this.consTime = consTime;

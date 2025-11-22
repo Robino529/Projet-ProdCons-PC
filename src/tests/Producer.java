@@ -1,16 +1,15 @@
 package tests;
 
-import interfaces.Message;
-import prodcons.v1.ProdConsBuffer;
+import interfaces.IProdConsBuffer;
 
 import java.util.Random;
 
 public class Producer extends Thread {
 	private int nMsgToProd;
-	private ProdConsBuffer buffer;
+	private IProdConsBuffer buffer;
 	private final int prodTime;
 
-	public Producer(int id, ProdConsBuffer buffer, int minMsg, int maxMsg, int prodTime) {
+	public Producer(int id, IProdConsBuffer buffer, int minMsg, int maxMsg, int prodTime) {
 		super("Producer-" + id);
 		this.nMsgToProd = new Random().nextInt(minMsg, maxMsg+1);
 		this.buffer = buffer;

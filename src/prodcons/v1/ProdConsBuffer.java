@@ -6,10 +6,10 @@ import interfaces.Message;
 /**
  * Implémentation de la Solution Directe à partir de :
  *
- * | Opération           | Pre-action   | Garde                             | Post-action                                             |
- * |---------------------|--------------|-----------------------------------|---------------------------------------------------------|
- * | void put(Message m) |              | nbMsgInBuffer < buffer.length     | putBuffer(m); nbMsgInBuffer++; nbMsgDuringBufferLife++; |
- * | Message get()       |              | nbMsgInBuffer > 0                 | return buffer[indice]; incrIndice(); nbMsgInBuffer--;   |
+ * | Opération           | Pre-action   | Garde                             | Post-action                                                          |
+ * |---------------------|--------------|-----------------------------------|----------------------------------------------------------------------|
+ * | void put(Message m) |              | nbMsgInBuffer < buffer.length     | putBuffer(m); nbMsgInBuffer++; nbMsgDuringBufferLife++; notifyAll(); |
+ * | Message get()       |              | nbMsgInBuffer > 0                 | return buffer[indice]; incrIndice(); nbMsgInBuffer--; notifyAll();   |
  *
  */
 
@@ -59,7 +59,7 @@ public class ProdConsBuffer implements IProdConsBuffer {
 		Message m = buffer[indice];
 		incrIndice();
 		nbMsgInBuffer--;
-		notify();
+		notifyAll();
 		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tConsume : " + m);
 		return m;
 	}
