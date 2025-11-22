@@ -53,7 +53,7 @@ public class ProdConsBuffer implements IProdConsBuffer {
 
 	@Override
 	public synchronized Message get() throws InterruptedException {
-		if (shutdown) {
+		if (shutdown && nmsg() == 0) {
 			throw new InterruptedException("Buffer is shutting down.");
 		}
 
