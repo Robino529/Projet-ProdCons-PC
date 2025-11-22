@@ -1,6 +1,7 @@
 package prodcons.v4;
 
-import tests.*;
+import prodcons.v2.Consumer;
+import tests.Producer;
 
 import java.io.IOException;
 import java.util.Properties;

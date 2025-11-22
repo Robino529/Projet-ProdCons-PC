@@ -29,10 +29,8 @@ public class ProdConsBuffer implements IProdConsBuffer {
 	// quitte à utiliser un Lock autant utiliser la version équitable qui garantit l'absence de famine
 	private final Lock prodLock = new ReentrantLock(true);
 	private final Condition prodCondition = prodLock.newCondition();
-	private int prodWaitingThreads = 0;
 	private final Lock consLock = new ReentrantLock(true);
 	private final Condition consCondition = consLock.newCondition();
-	private int consWaitingThreads = 0;
 
 	public ProdConsBuffer() {
 		this.buffer = new Message[SIZE_BUFFER];
@@ -57,24 +55,29 @@ public class ProdConsBuffer implements IProdConsBuffer {
 			prodCondition.await(); // on attend que la condition soit libérée par la méthode get()
 		}
 
+		boolean signalRequired = nmsg() == 0;
+
 		putBuffer(m);
 		nbMsgInBuffer++;
 		nbMsgDuringBufferLife++;
 
-		if (consLock.tryLock()) {
+		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tProduce : " + m +"\n\tBuffer contains : "+nmsg());
+		// on libère le verrou ici, l'E/S juste avant va provoquer la commutation donc pour
+		// que l'affichage soit cohérent, il faut unlock après.
+		prodLock.unlock();
+
+		if (signalRequired) {
+			consLock.lock();
 			consCondition.signal(); // on prévient la condition des consommateurs, qu'un message a été ajouté
 			consLock.unlock();
 		}
-
-		prodLock.unlock(); // on libère le verrou ici, l'E/S juste après va provoquer la commutation mais on aura terminé
-		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tProduce : " + m);
 	}
 
 	@Override
 	public Message get() throws InterruptedException {
 		consLock.lock();
 
-		if (shutdown) {
+		if (shutdown && nmsg() == 0) {
 			consLock.unlock();
 			throw new InterruptedException("Buffer is shutting down.");
 		}
@@ -83,17 +86,21 @@ public class ProdConsBuffer implements IProdConsBuffer {
 			consCondition.await();
 		}
 
+		boolean signalRequired = nmsg() >= buffer.length;
+
 		Message m = buffer[indice];
 		incrIndice();
 		nbMsgInBuffer--;
 
-		if (prodLock.tryLock()) {
+		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tConsume : " + m + "\n\tBuffer contains : "+nmsg());
+		consLock.unlock();
+
+		if (signalRequired) {
+			prodLock.lock();
 			prodCondition.signal();
 			prodLock.unlock();
 		}
 
-		consLock.unlock();
-		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tConsume : " + m);
 		return m;
 	}
 
@@ -119,6 +126,12 @@ public class ProdConsBuffer implements IProdConsBuffer {
 	}
 
 	public void shutdown() {
+		consLock.lock();
+		prodLock.lock();
+		consCondition.signalAll();
+		prodCondition.signalAll();
+		consLock.unlock();
+		prodLock.unlock();
 		shutdown = true;
 	}
 
