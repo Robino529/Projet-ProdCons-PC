@@ -1,7 +1,7 @@
 package prodcons.v3;
 
-import prodcons.IProdConsBuffer;
-import prodcons.Message;
+import interfaces.IProdConsBuffer;
+import interfaces.Message;
 import java.util.concurrent.Semaphore;
 
 public class ProdConsBuffer implements IProdConsBuffer {
