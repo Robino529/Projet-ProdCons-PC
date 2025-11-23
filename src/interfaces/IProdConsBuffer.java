@@ -24,4 +24,6 @@ public interface IProdConsBuffer {
 	 * been put in the buffer since its creation
 	 */
 	public int totmsg();
+	public Message[] get(int k) throws InterruptedException;
+
 }

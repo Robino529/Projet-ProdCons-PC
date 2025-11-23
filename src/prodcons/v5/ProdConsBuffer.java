@@ -1,67 +1,110 @@
 package prodcons.v5;
 
-import prodcons.v5.IProdConsBuffer;
+import interfaces.IProdConsBuffer;
 import interfaces.Message;
 
 public class ProdConsBuffer implements IProdConsBuffer {
+    private final static int SIZE_BUFFER = 5;
+
     private Message[] buffer;
-    private int in = 0, out = 0, count = 0, total = 0, size;
-    
+    private int nbMsgInBuffer = 0;
+    private int nbMsgDuringBufferLife = 0;
+    private int indice = 0; 
+    private boolean shutdown = false;
+
     private boolean transferInProgress = false; 
 
-    public ProdConsBuffer(int bufSz) {
-        this.size = bufSz;
-        this.buffer = new Message[size];
+    public ProdConsBuffer() {
+        this.buffer = new Message[SIZE_BUFFER];
+    }
+
+    public ProdConsBuffer(int buffer_size) {
+        this.buffer = new Message[buffer_size];
     }
 
     @Override
     public synchronized void put(Message m) throws InterruptedException {
-        while (count == size) {
-            wait();
+        if (shutdown) {
+            throw new InterruptedException("Buffer is shutting down.");
         }
-        
-        buffer[in] = m;
-        in = (in + 1) % size;
-        count++;
-        total++;
-        
-        notifyAll(); 
+
+        while (nmsg() >= buffer.length) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                if (shutdown) throw new InterruptedException("Buffer is shutting down.");
+            }
+        }
+
+        putBuffer(m);
+        nbMsgInBuffer++;
+        nbMsgDuringBufferLife++;
+        notifyAll();
+        System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tProduce : " + m);
     }
 
     @Override
     public synchronized Message get() throws InterruptedException {
-        while (count == 0 || transferInProgress) {
-            wait();
+        while ((nmsg() == 0 && !shutdown) || transferInProgress) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                if (shutdown) break; 
+            }
         }
-        
-        Message m = buffer[out];
-        out = (out + 1) % size;
-        count--;
+
+        if (shutdown && nmsg() == 0) {
+            throw new InterruptedException("Buffer is shutting down.");
+        }
+
+        Message m = buffer[indice];
+        incrIndice();
+        nbMsgInBuffer--;
         
         notifyAll();
+        System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tConsume : " + m);
         return m;
     }
 
-    @Override
+@Override
     public synchronized Message[] get(int k) throws InterruptedException {
-        while (transferInProgress) { 
+        // 1. Attente initiale
+        while (transferInProgress) {
             wait();
         }
+        
+        // Si fermé au départ, on arrête tout de suite
+        if (shutdown && nmsg() == 0) {
+            return null; // Ou throw exception, mais null est plus simple à gérer
+        }
 
-        // 2. Verrouillage de la consommation
-        transferInProgress = true; 
+        transferInProgress = true;
         Message[] messages = new Message[k];
 
         try {
-
             for (int i = 0; i < k; i++) {
-                while (count == 0) {
-                    wait();
+                // Attente de message
+                while (nmsg() == 0) {
+                    if (shutdown) {
+                        // MODIFICATION ICI :
+                        // Si on s'arrête au milieu du paquet, on arrête la boucle
+                        // mais on ne lance PAS d'exception pour ne pas perdre 
+                        // les messages déjà stockés dans 'messages'
+                        return messages; 
+                    }
+                    try {
+                        wait();
+                    } catch (InterruptedException e) {
+                         if (shutdown) return messages; // Idem ici
+                    }
                 }
 
-                messages[i] = buffer[out];
-                out = (out + 1) % size;
-                count--;
+                messages[i] = buffer[indice];
+                incrIndice();
+                nbMsgInBuffer--;
+                
+                System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tMulti-Consume [" + (i+1) + "/" + k + "] : " + messages[i]);
+
                 notifyAll();
             }
         } finally {
@@ -73,12 +116,29 @@ public class ProdConsBuffer implements IProdConsBuffer {
     }
 
     @Override
-    public synchronized int nmsg() {
-        return count;
+    public int nmsg() {
+        return nbMsgInBuffer;
     }
 
     @Override
-    public synchronized int totmsg() {
-        return total;
+    public int totmsg() {
+        return nbMsgDuringBufferLife;
+    }
+
+    private void incrIndice() {
+        indice = (indice+1) % buffer.length;
+    }
+
+    private void putBuffer(Message m) {
+        buffer[(indice+nbMsgInBuffer) % buffer.length] = m;
+    }
+
+    public synchronized void shutdown() {
+        shutdown = true;
+        notifyAll(); // Important : réveiller tout le monde pour qu'ils voient le flag shutdown
+    }
+
+    public boolean isShutdown() {
+        return shutdown;
     }
 }

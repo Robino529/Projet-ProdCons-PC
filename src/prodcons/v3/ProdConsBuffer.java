@@ -58,4 +58,9 @@ public class ProdConsBuffer implements IProdConsBuffer {
     public int nmsg() { return count; }
     @Override
     public int totmsg() { return total; }
+    @Override
+    public Message[] get(int k) throws InterruptedException{
+		return null;
+	}
+ 
 }
