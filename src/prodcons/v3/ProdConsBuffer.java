@@ -62,5 +62,6 @@ public class ProdConsBuffer implements IProdConsBuffer {
     public Message[] get(int k) throws InterruptedException{
 		return null;
 	}
+    public void put(Message m, int n) throws InterruptedException{}
  
 }

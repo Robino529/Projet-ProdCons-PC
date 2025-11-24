@@ -25,5 +25,5 @@ public interface IProdConsBuffer {
 	 */
 	public int totmsg();
 	public Message[] get(int k) throws InterruptedException;
-
+	public void put(Message m, int n) throws InterruptedException;
 }

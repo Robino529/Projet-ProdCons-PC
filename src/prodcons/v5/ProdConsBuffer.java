@@ -141,4 +141,7 @@ public class ProdConsBuffer implements IProdConsBuffer {
     public boolean isShutdown() {
         return shutdown;
     }
+    public void put(Message m, int n) throws InterruptedException{
+        
+    }
 }
