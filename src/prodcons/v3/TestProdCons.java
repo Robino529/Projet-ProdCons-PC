@@ -1,8 +1,7 @@
 package prodcons.v3;
 
-import tests.Consumer;
+import prodcons.v2.Consumer;
 import tests.Producer;
-
 import java.io.IOException;
 import java.util.Properties;
 import java.util.Random;
@@ -20,7 +19,6 @@ public class TestProdCons {
         try {
             TestProdCons options = new TestProdCons();
             options.retrieveOptions();
-            
 
             ProdConsBuffer buffer = new ProdConsBuffer(options.bufferSize);
 
@@ -34,14 +32,12 @@ public class TestProdCons {
                 consumers[i] = new Consumer(i, buffer, options.consumptionTime);
             }
 
-            // Lancement des threads avec mixage aléatoire
             Random starter = new Random();
             int alreadyStartedProd = 0;
             int alreadyStartedCons = 0;
 
             for (int i = 0; i < options.nProd + options.nCons; i++) {
                 boolean startProd = starter.nextBoolean();
-                
                 if ((startProd && alreadyStartedProd < options.nProd) || alreadyStartedCons == options.nCons) {
                     producers[alreadyStartedProd].start();
                     alreadyStartedProd++;
@@ -50,8 +46,27 @@ public class TestProdCons {
                     alreadyStartedCons++;
                 }
             }
+
+            for (Producer producer : producers) {
+                try {
+                    producer.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            // Arrêt du buffer une fois les producteurs terminés
+            buffer.shutdown();
+
+            for (Consumer consumer : consumers) {
+                try {
+                    consumer.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
             
-            System.out.println("Tous les threads sont lancés.");
+            System.out.println("Fin du test Objectif 3.");
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -60,8 +75,7 @@ public class TestProdCons {
 
     private void retrieveOptions() throws IOException {
         Properties properties = new Properties();
-        properties.loadFromXML(
-                TestProdCons.class.getClassLoader().getResourceAsStream("tests/ex-options.xml"));
+        properties.loadFromXML(TestProdCons.class.getClassLoader().getResourceAsStream("tests/ex-options.xml"));
 
         nProd = Integer.parseInt(properties.getProperty("nProd"));
         nCons = Integer.parseInt(properties.getProperty("nCons"));

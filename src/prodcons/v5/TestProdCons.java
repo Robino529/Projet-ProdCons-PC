@@ -32,7 +32,6 @@ public class TestProdCons {
     public void runTest() throws IOException, InterruptedException {
         retrieveOptions();
         
-        // On instancie votre buffer v5
         ProdConsBuffer buffer = new ProdConsBuffer(bufSz);
 
         Producer[] producers = new Producer[nProd];

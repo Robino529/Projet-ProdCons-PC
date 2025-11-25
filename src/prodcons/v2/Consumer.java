@@ -14,6 +14,7 @@ public class Consumer extends tests.Consumer {
 		while (true) {
 			try {
 				msg = buffer.get();
+				if (msg == null) { break; }
 			} catch (InterruptedException e) {
 				break;
 			}
