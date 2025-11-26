@@ -9,7 +9,7 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestProdCons {
-    // Compteurs atomiques pour vérifier mathématiquement la validité
+    // Compteurs globaux pour valider qu'aucun message n'est perdu à la fin
     public static AtomicInteger totalProduced = new AtomicInteger(0);
     public static AtomicInteger totalConsumed = new AtomicInteger(0);
 
@@ -37,11 +37,15 @@ public class TestProdCons {
         Producer[] producers = new Producer[nProd];
         BatchConsumer[] consumers = new BatchConsumer[nCons];
 
+        // Création des producteurs standards
         for (int i = 0; i < nProd; i++) {
             producers[i] = new Producer(i, buffer, minProd, maxProd, prodTime);
         }
+
         Random rand = new Random();
         for (int i = 0; i < nCons; i++) {
+            // k peut dépasser la taille du buffer
+            // Ex: si bufSz=5, k peut aller jusqu'à 9.
             int k = rand.nextInt(bufSz + 3) + 2; 
             consumers[i] = new BatchConsumer(i, buffer, consTime, k);
         }
@@ -53,24 +57,29 @@ public class TestProdCons {
         for (Producer p : producers) p.start();
         for (BatchConsumer c : consumers) c.start();
 
+        // 1. On attend que la production finisse
         for (Producer p : producers) {
             p.join();
         }
         System.out.println(">>> Tous les producteurs ont terminé.");
 
+        // 2. On signale l'arrêt pour débloquer les consommateurs en attente
         buffer.shutdown();
         System.out.println(">>> Signal Shutdown envoyé.");
 
+        // 3. On attend que les consommateurs traitent le shutdown et sortent
         for (BatchConsumer c : consumers) {
             c.join();
         }
         System.out.println(">>> Tous les consommateurs ont terminé.");
 
+        // Vérification comptable
         System.out.println("\n--- Bilan ---");
         System.out.println("Messages restants dans le buffer : " + buffer.nmsg());
         System.out.println("Messages produits (selon buffer.totmsg) : " + buffer.totmsg());
         System.out.println("Messages consommés (compteur test)      : " + totalConsumed.get());
 
+        // Si tout est égal, c'est que la logique de 'return messages' partiel a fonctionné
         if (buffer.nmsg() == 0 && buffer.totmsg() == totalConsumed.get()) {
             System.out.println("succes : Buffer vide et comptes cohérents.");
         } else {
@@ -90,7 +99,7 @@ public class TestProdCons {
         maxProd = Integer.parseInt(properties.getProperty("maxProd"));
     }
 
-
+    // Consommateur spécifique pour l'objectif 5
     static class BatchConsumer extends Thread {
         private final ProdConsBuffer buffer;
         private final int id;
@@ -98,7 +107,7 @@ public class TestProdCons {
         private final int batchSize;
 
         public BatchConsumer(int id, ProdConsBuffer buffer, int waitTime, int k) {
-            super("BatchCons-" + id); // Appel au constructeur de Thread
+            super("BatchCons-" + id); 
             this.id = id;
             this.buffer = buffer;
             this.waitTime = waitTime;
@@ -109,10 +118,13 @@ public class TestProdCons {
         public void run() {
             try {
                 while (true) {
+                    // Appel bloquant pour récupérer k messages
                     Message[] messages = buffer.get(batchSize);
                     
+                    // Si null, le buffer est fermé et vide -> on sort
                     if (messages == null) break;
 
+                    // On compte les messages réellement reçus (ignore les nulls de fin)
                     int nbRecus = 0;
                     for (Message m : messages) {
                         if (m != null) nbRecus++;
@@ -120,11 +132,13 @@ public class TestProdCons {
 
                     if (nbRecus == 0) break;
 
+                    // Mise à jour Thread-Safe du compteur global
                     synchronized (TestProdCons.class) {
                         System.out.println("Consommateur " + id + " a récupéré un lot de " + nbRecus + " messages (demandé: " + batchSize + ").");
                         TestProdCons.totalConsumed.addAndGet(nbRecus);
                     }
                     
+                    // Si on a reçu un paquet incomplet, c'est que le shutdown a eu lieu pendant le get()
                     if (nbRecus < batchSize) break; 
                     
                     Thread.sleep(waitTime);

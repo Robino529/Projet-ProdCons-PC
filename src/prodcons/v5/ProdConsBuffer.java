@@ -12,6 +12,7 @@ public class ProdConsBuffer implements IProdConsBuffer {
     private int indice = 0; 
     private boolean shutdown = false;
 
+    // Sert de verrou pour dire "Occupé à faire un get(k), pas touche !"
     private boolean transferInProgress = false; 
 
     public ProdConsBuffer() {
@@ -28,6 +29,7 @@ public class ProdConsBuffer implements IProdConsBuffer {
             throw new InterruptedException("Buffer is shutting down.");
         }
 
+        // Bloque si le buffer est plein
         while (nmsg() >= buffer.length) {
             try {
                 wait();
@@ -39,12 +41,13 @@ public class ProdConsBuffer implements IProdConsBuffer {
         putBuffer(m);
         nbMsgInBuffer++;
         nbMsgDuringBufferLife++;
-        notifyAll();
+        notifyAll(); // On réveille les consommateurs
         System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tProduce : " + m);
     }
 
     @Override
     public synchronized Message get() throws InterruptedException {
+        // On attend si vide OU si un transfert get(k) est en cours pour ne pas "voler" un message
         while ((nmsg() == 0 && !shutdown) || transferInProgress) {
             try {
                 wait();
@@ -61,41 +64,40 @@ public class ProdConsBuffer implements IProdConsBuffer {
         incrIndice();
         nbMsgInBuffer--;
         
-        notifyAll();
+        notifyAll(); // On libère de la place pour les producteurs
         System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tConsume : " + m);
         return m;
     }
 
-@Override
+    @Override
     public synchronized Message[] get(int k) throws InterruptedException {
-        // 1. Attente initiale
+        // Si quelqu'un fait déjà un gros transfert, on attend notre tour
         while (transferInProgress) {
             wait();
         }
         
-        // Si fermé au départ, on arrête tout de suite
+        // Si c'est déjà fermé, pas la peine de commencer
         if (shutdown && nmsg() == 0) {
-            return null; // Ou throw exception, mais null est plus simple à gérer
+            return null; 
         }
 
+        // On verrouille l'accès pour être les seuls à consommer
         transferInProgress = true;
         Message[] messages = new Message[k];
 
         try {
             for (int i = 0; i < k; i++) {
-                // Attente de message
+                // Attente qu'un message arrive
                 while (nmsg() == 0) {
                     if (shutdown) {
-                        // MODIFICATION ICI :
-                        // Si on s'arrête au milieu du paquet, on arrête la boucle
-                        // mais on ne lance PAS d'exception pour ne pas perdre 
-                        // les messages déjà stockés dans 'messages'
+                        // Si ça coupe au milieu, on renvoie ce qu'on a déjà pour ne pas perdre de données
                         return messages; 
                     }
                     try {
+                        // Relâche le lock ici : permet aux producteurs de remplir le buffer pendant qu'on boucle
                         wait();
                     } catch (InterruptedException e) {
-                         if (shutdown) return messages; // Idem ici
+                         if (shutdown) return messages; 
                     }
                 }
 
@@ -105,9 +107,11 @@ public class ProdConsBuffer implements IProdConsBuffer {
                 
                 System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tMulti-Consume [" + (i+1) + "/" + k + "] : " + messages[i]);
 
+                // Important : on notifie à chaque pas pour que les producteurs remettent des messages
                 notifyAll();
             }
         } finally {
+            // Quoi qu'il arrive (succès ou crash), on libère le passage pour les autres
             transferInProgress = false;
             notifyAll();
         }
@@ -129,19 +133,24 @@ public class ProdConsBuffer implements IProdConsBuffer {
         indice = (indice+1) % buffer.length;
     }
 
+    /**
+     * Place un message à la suite des autres.
+     * Logique : L'index d'écriture se trouve à "Tête de Lecture" + "Nombre d'éléments".
+     * Le modulo (%) gère le retour au début du tableau si on dépasse la taille.
+     */
     private void putBuffer(Message m) {
         buffer[(indice+nbMsgInBuffer) % buffer.length] = m;
     }
 
     public synchronized void shutdown() {
         shutdown = true;
-        notifyAll(); // Important : réveiller tout le monde pour qu'ils voient le flag shutdown
+        notifyAll(); // Réveil général pour traiter l'arrêt
     }
 
     public boolean isShutdown() {
         return shutdown;
     }
-    public void put(Message m, int n) throws InterruptedException{
-        
-    }
+    
+    // Stub pour l'interface (utilisé plus tard en obj 6)
+    public void put(Message m, int n) throws InterruptedException {}
 }
