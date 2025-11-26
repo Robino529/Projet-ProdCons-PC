@@ -31,6 +31,7 @@ public class ProdConsBuffer implements IProdConsBuffer {
 
 	@Override
 	public synchronized void put(Message m) throws InterruptedException {
+		// boucle d'attente classique tirée du table des gardes donné plus haut
 		while (nmsg() >= buffer.length) {
 			try {
 				wait();
@@ -39,15 +40,20 @@ public class ProdConsBuffer implements IProdConsBuffer {
 			}
 		}
 
+		// insertion du message dans le buffer
 		putBuffer(m);
+		// incrémentation des différents indicateurs
 		nbMsgInBuffer++;
 		nbMsgDuringBufferLife++;
+		// réveil de tout le monde (un seul pourrait suffire si on pouvait prévenir de façon isolée Cons et Prod)
 		notifyAll();
+		// affichage console pour pouvoir décomposer l'exécution
 		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tProduce : " + m);
 	}
 
 	@Override
 	public synchronized Message get() throws InterruptedException {
+		// boucle d'attente classique tirée du table des gardes donné plus haut
 		while (nmsg() == 0) {
 			try {
 				wait();
@@ -56,10 +62,14 @@ public class ProdConsBuffer implements IProdConsBuffer {
 			}
 		}
 
+		// récupération du message dans le buffer
 		Message m = buffer[indice];
+		// mise à jour des différents indicateurs
 		incrIndice();
 		nbMsgInBuffer--;
+		// réveil de tout le monde (un seul pourrait suffire si on pouvait prévenir de façon isolée Cons et Prod)
 		notifyAll();
+		// affichage console pour pouvoir décomposer l'exécution
 		System.out.println("Thread : " + Thread.currentThread().getName() + "\n\tConsume : " + m);
 		return m;
 	}
@@ -75,12 +85,16 @@ public class ProdConsBuffer implements IProdConsBuffer {
 	}
 
 	/**
-	 * Exécuter uniquement via des méthodes synchronized, permet d'incrémenter l'indice en respectant le Ring
+	 * À exécuter uniquement via des méthodes synchronized, permet d'incrémenter l'indice en respectant le Ring
 	 */
 	private void incrIndice() {
 		indice = (indice+1) % buffer.length; // le modulo permet de respecter le ring
 	}
 
+	/**
+	 * Permet d'insérer le message donné dans le buffer, en respectant les contraintes du Ring
+	 * @param m Message à insérer dans le buffer
+	 */
 	private void putBuffer(Message m) {
 		buffer[(indice+nbMsgInBuffer) % buffer.length] = m;
 	}
