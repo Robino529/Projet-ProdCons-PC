@@ -18,6 +18,7 @@ public class Consumer extends tests.Consumer {
 			// on récupère le message suivant du buffer
 			try {
 				msg = buffer.get();
+				if (msg == null) { break; }
 			}
 			// condition d'arrêt standard du consommateur, c'est une exception de ce type que renvoie le buffer
 			// lorsqu'il est éteint et qu'il ne reste aucun message à lire

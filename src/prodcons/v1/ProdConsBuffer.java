@@ -98,4 +98,10 @@ public class ProdConsBuffer implements IProdConsBuffer {
 	private void putBuffer(Message m) {
 		buffer[(indice+nbMsgInBuffer) % buffer.length] = m;
 	}
+	public Message[] get(int k) throws InterruptedException
+	{
+		return null;
+	}
+	public void put(Message m, int n) throws InterruptedException{}
+
 }
