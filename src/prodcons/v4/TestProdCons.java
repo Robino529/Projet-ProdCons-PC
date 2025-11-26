@@ -38,18 +38,24 @@ public class TestProdCons {
 
 			// lancement des threads
 			Random starter = new Random();
+			Thread[] order = new Thread[options.nProd+options.nCons]; // sert à afficher l'ordre de lancement
+
 			int alreadyStartedProd = 0;
 			int alreadyStartedCons = 0;
 			for (int i = 0; i < options.nProd + options.nCons; i++) {
-				if ((starter.nextBoolean() && options.nProd < alreadyStartedProd) || options.nCons == alreadyStartedCons) {
+				// clause permettant de choisir aléatoirement entre lancer un Producteur ou un Consommateur, tant que c'est possible
+				if ((starter.nextBoolean() && options.nProd > alreadyStartedProd) || options.nCons == alreadyStartedCons) {
 					producers[alreadyStartedProd].start();
+					order[i] = producers[alreadyStartedProd];
 					alreadyStartedProd++;
 				} else {
 					consumers[alreadyStartedCons].start();
+					order[i] = consumers[alreadyStartedCons];
 					alreadyStartedCons++;
 				}
 			}
 
+			// attente de la terminaison des producteurs
 			for (Producer producer : producers) {
 				try {
 					producer.join();
@@ -58,17 +64,25 @@ public class TestProdCons {
 				}
 			}
 
-			// permet de s'assurer que personne d'autre ne va produire des messages (en réalité inutile dans le cas
-			// de cet objectif car un seul programme discute avec le buffer).
-			// Cela permet également aux consumers de s'arrêter puisqu'ils n'avaient pas de condition d'arrêt au préalable.
+			// Extinction du buffer
+			// => Permet de s'assurer que personne d'autre ne va produire des messages (en réalité inutile dans le cas
+			//    de cet objectif car un seul programme discute avec le buffer).
+			// => Cela permet également aux consumers de s'arrêter puisqu'ils n'avaient pas de condition d'arrêt au préalable.
 			buffer.shutdown();
 
+			// attente de la terminaison des consommateurs
 			for (Consumer consumer : consumers) {
 				try {
 					consumer.join();
 				} catch (InterruptedException e) {
 					throw new RuntimeException(e);
 				}
+			}
+
+			// affichage de l'ordre de démarrage des threads
+			System.out.println("######################################\n\t\tOrdre de démarrage des threads");
+			for (Thread thread : order) {
+				System.out.println("\t"+thread.getName());
 			}
 
 		} catch (IOException e) {
