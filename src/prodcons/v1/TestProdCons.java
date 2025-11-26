@@ -38,16 +38,27 @@ public class TestProdCons {
 
 			// lancement des threads
 			Random starter = new Random();
+			Thread[] order = new Thread[options.nProd+options.nCons]; // sert à afficher l'ordre de lancement
+
 			int alreadyStartedProd = 0;
 			int alreadyStartedCons = 0;
 			for (int i = 0; i < options.nProd + options.nCons; i++) {
-				if ((starter.nextBoolean() && options.nProd < alreadyStartedProd) || options.nCons == alreadyStartedCons) {
+				// clause permettant de choisir aléatoirement entre lancer un Producteur ou un Consommateur, tant que c'est possible
+				if ((starter.nextBoolean() && options.nProd > alreadyStartedProd) || options.nCons == alreadyStartedCons) {
 					producers[alreadyStartedProd].start();
+					order[i] = producers[alreadyStartedProd];
 					alreadyStartedProd++;
 				} else {
 					consumers[alreadyStartedCons].start();
+					order[i] = consumers[alreadyStartedCons];
 					alreadyStartedCons++;
 				}
+			}
+
+			// affichage de l'ordre de démarrage des threads
+			System.out.println("######################################\n\t\tOrdre de démarrage des threads");
+			for (Thread thread : order) {
+				System.out.println("\t"+thread.getName());
 			}
 
 		} catch (IOException e) {
